@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: DWIF process service now kb articlesdevsecops stack resources.
+Parameters:
+  Environment:
+    Type: String
+    Description: S3Bucket Path where the templates are stored
+    Default: dev
+  AmazonLinux2ImageID:
+    Description: Amazon Linux 2 Latest AMI ID
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+  TenantAcronym:
+    Type: String
+    Description: tenant acronym
+    Default: devsecops
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9-_]*'
+  DeploymentVer:
+    Type: String
+    Description: deployment version
+    Default: v1
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9-_]*'
+  AssetBucketParam:
+    Type: String
+    Description: Bucket used to upload assets
+    Default: sn-kb-articles
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9-_]*'
+  ENVblobconnectionstring:
+    Type: String
+    Description: blob connection string
+    Default: DefaultEndpointsProtocol=https;AccountName=dwifstorageeast2lab;AccountKey=AaqylAnnPJz/Br9lY9oh1amd0Vo5kZn0uvpBxYb0g3fFaFYKbaUvihj300E++3oEYenampus+eQc+AStwqfdyw==;EndpointSuffix=core.windows.net
+  ENVcontainername:
+    Type: String
+    Description: storage container name
+    Default: ai-knowledge-test
+  ENVSNSNOTIFTOPIC:
+    Type: String
+    Description: SNS notification topic.
+    Default: arn:aws:sns:us-west-2:516595067404:dwiflabMonitorLambda
+    AllowedPattern: '[a-zA-Z][-a-zA-Z0-9]*|arn:[-a-zA-Z0-9:/._+]*'
+  ENVITSMACCOUNT:
+    Type: String
+    Description: itsm account name
+    Default: aws.saic
+  ENVITSMACCOUNTPWD:
+    Type: String
+    Description: itsm_account_pass
+    Default: M1P1amazonintONE1!
+  ENVITSMINSTANCE:
+    Type: String
+    Description: itsm instance
+    Default: scienceapplicationsintlcorpsaicdemo9.service-now.com
+  ENVKBSOURCE:
+    Type: String
+    Description: KB source
+    Default: /es3?id=kb_article_view&sysparm_article=
+  ENVKBINSTANCE:
+    Type: String
+    Description: itsm instance
+    Default: es3dev.saic.com
+  ENVCHATCOMPLDEPNAME:
+    Type: String
+    Description: chat deployment name
+    Default: DWIF-GPT4o
+  ENVAZUREOPENAIENDPT:
+    Type: String
+    Description: openai endpoint
+    Default: https://dwifopenaieast2.openai.azure.com/
+  ENVAZUREOPENAIKEY:
+    Type: String
+    Description: open ai api key
+    Default: eb8b3dedcabf4705b7302196c8091c4e
+  ENVAZUREAISEARCHAPIKEY:
+    Type: String
+    Description: search api key
+    Default: hdNJPXymX9Mk3bnCXpbgAOgPqvbMFY7GprlvSZrNoCAzSeBPTegl
+  ENVSEARCHENDPOINT:
+    Type: String
+    Description: search endpoint
+    Default: https://cognitiveservice-east.search.windows.net
+  ENVSEARCHINDEX:
+    Type: String
+    Description: search index
+    Default: ito-pilot-index-v
+  CodeBuildBucket:
+    Description: data type lambda codebuild bucket
+    Type: String
+  CodeBuildObjectKey:
+    Description: data type lambda codebuild object key
+    Type: String
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: General Configuration
+      Parameters:
+      - TenantAcronym
+      - AssetBucketParam
+    ParameterLabels:
+      TenantAcronym:
+        default: Tenant Acronym
+      AssetBucketParam:
+        default: DWIF Assets Bucket
+      LanguageCode:
+        default: Default language code
+Resources:
+  LambdaPipelineFunctionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+        - id: W11
+          reason: This wildcard is present as state machine lambda needs to be able
+            to access contents within the bucket!
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      Path: /
+      Policies:
+      - PolicyName:
+          Fn::Sub: ${TenantAcronym}-productsservices
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:PutObjectTagging
+            - s3:PutObjectVersionTagging
+            Resource:
+            - Fn::Sub: arn:aws:s3:::${AssetBucketParam}/*
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+            - Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+  AdvBotChatLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: dwif-devsecops-lambda1-${DeploymentVer}
+      CodeUri: s3://dwif-lambda-project-artifacts/486373db1dc9998bcfe68a15ee6c4e79
+      Timeout: 900
+      MemorySize: 512
+      Handler: dwif-devsecops-lambda1.lambda_handler
+      Layers:
+      - arn:aws:lambda:us-west-2:516595067404:layer:ijson-layer:1
+      - arn:aws:lambda:us-west-2:516595067404:layer:pypandoc:2
+      Role:
+        Fn::GetAtt:
+        - LambdaPipelineFunctionRole
+        - Arn
+      Runtime: python3.12
+      Environment:
+        Variables:
+          SNSTopicARN:
+            Ref: ENVSNSNOTIFTOPIC
+          ITSM_ACCOUNT:
+            Ref: ENVITSMACCOUNT
+          ITSM_ACCOUNT_PWD:
+            Ref: ENVITSMACCOUNTPWD
+          ITSM_INSTANCE:
+            Ref: ENVITSMINSTANCE
+  AdvBotLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: dwif-devsecops-lambda2-${DeploymentVer}
+      CodeUri: s3://dwif-lambda-project-artifacts/486373db1dc9998bcfe68a15ee6c4e79
+      Timeout: 250
+      MemorySize: 512
+      Handler: dwif-devsecops-lambda2.lambda_handler
+      Layers:
+      - arn:aws:lambda:us-west-2:516595067404:layer:openai_v1370:1
+      - arn:aws:lambda:us-west-2:516595067404:layer:azure-storage-blob:9
+      Role:
+        Fn::GetAtt:
+        - LambdaPipelineFunctionRole
+        - Arn
+      Runtime: python3.12
+      Environment:
+        Variables:
+          ITSM_ACCOUNT:
+            Ref: ENVITSMACCOUNT
+          ITSM_ACCOUNT_PWD:
+            Ref: ENVITSMACCOUNTPWD
+          ITSM_INSTANCE:
+            Ref: ENVITSMINSTANCE
+Outputs:
+  ServiceRoleArn:
+    Value:
+      Fn::GetAtt:
+      - LambdaPipelineFunctionRole
+      - Arn
+    Description: Role Arn (Lambda Function ARN)
+  LambdaFunctionList:
+    Value:
+      Fn::Join:
+      - ','
+      - - Ref: AdvBotChatLambdaFunction
+        - Ref: AdvBotLambdaFunction
+    Description: List of Lambda functions

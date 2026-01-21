@@ -1,0 +1,70 @@
+version: 0.2
+
+env:
+  variables:
+    #S3_BUCKET: devsecopstutorial-bucket-snafiypqlwys
+    # replace this value in this file after creating the infrastructure
+    S3_BUCKET: devsecopspoc-infra-stack-bucket-8hdrsteobmqe
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+  pre_build:
+    commands:
+    - env
+    - aws --version
+    - aws sts get-caller-identity
+    - pip install --quiet --upgrade pip
+    - pip install --quiet --upgrade cfn-lint
+    - cfn-lint --version
+  build:
+    commands:
+    - |
+      # set -eux
+      # echo "Running Python syntax check"
+      # python -m py_compile $(find * -type f -name '*.py')
+      PACKAGED_DIR="/tmp/packaged"
+      rm -rf "$PACKAGED_DIR"
+      mkdir -p "$PACKAGED_DIR"
+      TEMPLATES="$(find . -name *.yml)"
+      echo "Found CloudFormation templates: $TEMPLATES"
+      # echo "Running cfn-lint"
+      # cfn-lint rules: https://github.com/aws-cloudformation/cfn-lint/blob/main/docs/rules.md
+      # cfn-lint -I $TEMPLATES --ignore-checks W3002
+      for TEMPLATE in $TEMPLATES; do
+        FILENAME="$(basename "$TEMPLATE")"
+        echo $FILENAME
+        if [ "$FILENAME" == 'template_cf.yml' ]; then
+          # STACK_NAME="${FILENAME%.*}"
+          STACK_NAME="awsdevsecopslambda-deploy"
+          echo "Packaging template '$TEMPLATE'" 
+          echo "S3 Bucket: $S3_BUCKET"
+          cd $PWD
+          echo "before executing package command, PWD=" + $PWD
+          aws cloudformation package --template-file "$TEMPLATE" --s3-bucket "$S3_BUCKET" --output-template-file "${PACKAGED_DIR}/template_cf_out.yaml"
+          if [ "$CODEBUILD_SOURCE_VERSION" == 'refs/heads/main' ]; then
+            echo "Deploying template '${PACKAGED_DIR}/${FILENAME}' as stack '$STACK_NAME'"
+            # skipping deploy, just storing the packaged file in the s3 folder for deployment stage.
+            #aws cloudformation deploy --template-file "${PACKAGED_DIR}/${FILENAME}" --stack-name "$STACK_NAME" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset --parameter-overrides IdentityNameParameter=AmazonLinux2ImageID  --tags "CodeCommitRepository=${CODEBUILD_BUILD_URL}"
+          fi
+        fi
+      done
+  #  NOT NEEDED SINCE codebuild project is uploading to the s3 location already: devsecopstutorial-bucket-snafiypqlwys/DevSecOpsAWSPipeline/lambda-fun/
+  # post_build:
+  #   commands:
+  #     - echo Post Build Started successfully on `date`
+  #     - ls -l ${PACKAGED_DIR}/*.yaml
+  #     - echo "$PWD"
+  #     - cd /tmp/packaged/ && ls -l
+  #     - aws s3 cp  template_cf_out.yaml s3://${S3_BUCKET}/
+  #     #- aws s3 cp * s3://${S3_BUCKET} --recursive --acl public-read
+  #     - artifact="s3://${S3_BUCKET}/template_cf_out.yaml"
+  #     - echo Build completed on `date`
+  #     - echo $PWD
+artifacts:
+  files:
+    - /tmp/packaged/*
+    #- template_cf_out.yaml 
+    #- base-directory: '/tmp/packaged'
+  discard-paths: yes
