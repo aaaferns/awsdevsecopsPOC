@@ -16,7 +16,7 @@ The tutorial has used open-source tools to build the DevSecOps pipeline to make 
 
 ![alt text](https://hackernoon.com/images/gv93oOBCpSQa2kRIURhv0A8fVP33-2o1l3378.png)
 
-
+```
 
 -- Master template deployment. -- FAILED. so used default launchfrom website.
 cd /c/angelo/dwif/lab/AWSDevSecOpsPOC/CFNTemplate
@@ -84,6 +84,9 @@ User: arn:aws:sts::516595067404:assumed-role/CodePipelineRole-DevSecOpsTutorial/
 
 -- added IAM fullAccess to codepipelinerole.
 -- added SNS fullaccess to the codepipeline role.
+``
+
+```
 
 03/14/2025:
 -----------
@@ -112,6 +115,9 @@ Deploy the stack and see if it works.
 Compare codebuild project in new with the one that works if it does not work.
 
 Test again the pipeline.
+
+
+```
 
 -- Deployed with changes.
 Error at Preprod stage:
