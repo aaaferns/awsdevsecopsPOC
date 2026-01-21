@@ -33,7 +33,7 @@ Parameters:
   ENVblobconnectionstring:
     Type: String
     Description: blob connection string
-    Default: DefaultEndpointsProtocol=https;AccountName=dwifstorageeast2lab;AccountKey=AaqylAnnPJz/Br9lY9oh1amd0Vo5kZn0uvpBxYb0g3fFaFYKbaUvihj300E++3oEYenampus+eQc+AStwqfdyw==;EndpointSuffix=core.windows.net
+    Default: "abc"
     #AllowedPattern: "[a-zA-Z][a-zA-Z0-9-._]*"
     
   ENVcontainername:
@@ -91,7 +91,7 @@ Parameters:
   ENVAZUREAISEARCHAPIKEY:
     Type: String
     Description: search api key
-    Default: hdNJPXymX9Mk3bnCXpbgAOgPqvbMFY7GprlvSZrNoCAzSeBPTegl
+    Default: abc
 
   ENVSEARCHENDPOINT:
     Type: String
